@@ -1,0 +1,61 @@
+name: Build Chrome Extension
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify ImageMagick is available
+        run: |
+          which convert
+          convert --version
+
+      - name: Convert SVG icons to PNG
+        run: |
+          convert -background none icon16.svg -resize 16x16 icon16.png
+          convert -background none icon48.svg -resize 48x48 icon48.png
+          convert -background none icon128.svg -resize 128x128 icon128.png
+          ls -lh icon*.png
+
+      - name: Update manifest.json to use PNG icons
+        run: |
+          sed -i 's/"icon16.svg"/"icon16.png"/g' manifest.json
+          sed -i 's/"icon48.svg"/"icon48.png"/g' manifest.json
+          sed -i 's/"icon128.svg"/"icon128.png"/g' manifest.json
+          cat manifest.json
+
+      - name: Create distribution package
+        run: |
+          mkdir -p dist
+          zip -r dist/freshbooks-speed-boost.zip \
+            manifest.json \
+            content.js \
+            icon16.png \
+            icon48.png \
+            icon128.png
+          ls -lh dist/
+
+      - name: Upload extension package
+        uses: actions/upload-artifact@v4
+        with:
+          name: freshbooks-speed-boost
+          path: dist/freshbooks-speed-boost.zip
+          retention-days: 90
+
+      - name: Display package info
+        run: |
+          echo "Extension package created successfully!"
+          echo "File size: $(du -h dist/freshbooks-speed-boost.zip | cut -f1)"
+          echo "Contents:"
+          unzip -l dist/freshbooks-speed-boost.zip
